@@ -66,9 +66,9 @@ class AbstractQueryRunner(object):
         self._auth0_token = args.auth0_token
         self._client = client.HttpClient(
             args.baseUrl,
-            verbosityToLogLevel(args.verbose),
-            self._key,
-            self._auth0_token)
+            logLevel=verbosityToLogLevel(args.verbose),
+            authentication_key=self._key,
+            id_token=self._auth0_token)
 
 
 class FormattedOutputRunner(AbstractQueryRunner):
