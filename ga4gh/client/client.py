@@ -20,21 +20,24 @@ class AbstractClient(object):
     The abstract superclass of GA4GH Client objects.
     """
 
-    def __init__(self, log_level=0):
+    def __init__(self, log_level=0, serialization="application/protobuf"):
         self._page_size = None
         self._log_level = log_level
         self._protocol_bytes_received = 0
         logging.basicConfig()
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(log_level)
+        self._serialization = serialization
+        if not serialization in protocol.MIMETYPES:
+            self._serialization = "application/protobuf"
 
     def _deserialize_response(
-            self, json_response_string, protocol_response_class):
-        self._protocol_bytes_received += len(json_response_string)
-        self._logger.debug("response:{}".format(json_response_string))
-        if not json_response_string:
+            self, response_string, protocol_response_class):
+        self._protocol_bytes_received += len(response_string)
+        self._logger.debug("response:{}".format(response_string))
+        if not response_string:
             raise exceptions.EmptyResponseException()
-        return protocol.fromJson(json_response_string, protocol_response_class)
+        return protocol.deserialize(response_string, self._serialization, protocol_response_class)
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -862,17 +865,21 @@ class HttpClient(AbstractClient):
         server after logging in.
     :param str id_token: The Auth0 id_token key provided by the
         server after logging in.
+    :param str serialization: "application/protobuf" or "application/json",
+        the serialization protocol used for the protobuf objects
     """
 
     def __init__(
             self, url_prefix, logLevel=logging.WARNING,
+            serialization="application/protobuf",
             authentication_key=None,
             id_token=None):
-        super(HttpClient, self).__init__(logLevel)
+        super(HttpClient, self).__init__(logLevel, serialization)
         self._url_prefix = url_prefix
         self._authentication_key = authentication_key
         self._id_token = id_token
         self._session = requests.Session()
+	self._serialization = serialization
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
         requests_log.setLevel(logLevel)
@@ -882,7 +889,8 @@ class HttpClient(AbstractClient):
         """
         Sets up the common HTTP session parameters used by requests.
         """
-        headers = {"Content-type": "application/json"}
+        headers = {"Content-type": "application/json",
+                   "Accept": self._serialization }
         if (self._id_token):
             headers.update({"authorization": "Bearer {}".format(
                 self._id_token)})
@@ -960,9 +968,12 @@ class HttpClient(AbstractClient):
 
 class LocalClient(AbstractClient):
 
-    def __init__(self, backend):
-        super(LocalClient, self).__init__()
+    def __init__(self, backend, serialization="application/protobuf"):
+        super(LocalClient, self).__init__(serialization=serialization)
         self._backend = backend
+        self._serialization = serialization
+	if not self._serialization in protocol.MIMETYPES:
+            self._serialization = "application/protobuf"
         self._get_method_map = {
             "callsets": self._backend.runGetCallSet,
             "datasets": self._backend.runGetDataset,
@@ -1013,44 +1024,44 @@ class LocalClient(AbstractClient):
 
     def _run_get_request(self, object_name, protocol_response_class, id_):
         get_method = self._get_method_map[object_name]
-        response_json = get_method(id_)
+        response_string = get_method(id_, self._serialization)
         return self._deserialize_response(
-            response_json, protocol_response_class)
+            response_string, protocol_response_class)
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
         search_method = self._search_method_map[object_name]
-        response_json = search_method(protocol.toJson(protocol_request))
+        response_string = search_method(protocol.toJson(protocol_request), self._serialization)
         return self._deserialize_response(
-            response_json, protocol_response_class)
+            response_string, protocol_response_class)
 
     def _run_list_reference_bases_page_request(self, request):
-        response_json = self._backend.runListReferenceBases(
-            protocol.toJson(request))
+        response_string = self._backend.runListReferenceBases(
+            protocol.toJson(request), self._serialization)
         return self._deserialize_response(
-            response_json, protocol.ListReferenceBasesResponse)
+            response_string, protocol.ListReferenceBasesResponse)
 
     def _run_http_get_request(
             self, path, protocol_response_class):
         if path == "info":
-            response_json = self._backend.runGetInfo(
-                protocol.GetInfoRequest())
+            response_string = self._backend.runGetInfo(
+                protocol.GetInfoRequest(), self._serialization)
             return self._deserialize_response(
-                response_json, protocol_response_class)
+                response_string, protocol_response_class)
         else:
             raise NotImplemented()
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
         if path == "announce":
-            response_json = self._backend.runAddAnnouncement(
-                protocol.toJson(protocol_request))
+            response_string = self._backend.runAddAnnouncement(
+                protocol.toJson(protocol_request), self._serialization)
             return self._deserialize_response(
-                response_json, protocol_response_class)
+                response_string, protocol_response_class)
         elif path == "peers/list":
-            response_json = self._backend.runListPeers(
-                protocol.toJson(protocol_request))
+            response_string = self._backend.runListPeers(
+                protocol.toJson(protocol_request), self._serialization)
             return self._deserialize_response(
-                response_json, protocol_response_class)
+                response_string, protocol_response_class)
         else:
             raise NotImplemented()
