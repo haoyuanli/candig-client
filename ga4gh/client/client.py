@@ -880,6 +880,8 @@ class HttpClient(AbstractClient):
         self._id_token = id_token
         self._session = requests.Session()
 	self._serialization = serialization
+	if not self._serialization in protocol.MIMETYPES:
+            self._serialization = "application/protobuf"
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
         requests_log.setLevel(logLevel)
