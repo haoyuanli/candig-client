@@ -4,6 +4,6 @@
 # These requirements are read directly into setup.py, so specify them
 # in the order that they should be in in setup.py
 ga4gh_common==0.0.7
-ga4gh_schema>=0.6.0a10.post2
+ga4gh_schema==0.6.0a10.post2.dev2
 requests
 protobuf==3.2.0
