@@ -17,7 +17,7 @@ import ga4gh.client.cli as cli_client
 import ga4gh.common.utils as utils
 import ga4gh.schemas.protocol as protocol
 
-import test.unit.fakeobj_pb2 as fakeobj
+import tests.unit.fakeobj_pb2 as fakeobj
 
 
 class TestClientArguments(unittest.TestCase):
