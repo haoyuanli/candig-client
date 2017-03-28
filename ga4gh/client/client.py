@@ -971,7 +971,7 @@ class HttpClient(AbstractClient):
 class LocalClient(AbstractClient):
 
     def __init__(self, backend, serialization="application/protobuf"):
-        super(LocalClient, self).__init__(serialization)
+        super(LocalClient, self).__init__(serialization=serialization)
         self._backend = backend
         self._serialization = serialization
 	if not self._serialization in protocol.MIMETYPES:
