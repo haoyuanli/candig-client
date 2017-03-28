@@ -1,0 +1,6 @@
+package fakeobj;
+
+message FakeObject {
+    required string name = 1;
+    required string id = 2;
+}

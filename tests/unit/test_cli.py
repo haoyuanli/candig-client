@@ -9,13 +9,11 @@ import json
 import mock
 import unittest
 
-import google.protobuf.descriptor as descriptor
-import google.protobuf.internal.python_message as python_message
-
 import ga4gh.client.cli as cli_client
 
 import ga4gh.common.utils as utils
-import ga4gh.schemas.protocol as protocol
+
+import tests.unit.fakeobj_pb2 as fakeobj
 
 
 class TestClientArguments(unittest.TestCase):
@@ -427,51 +425,8 @@ class TestOutputFormats(unittest.TestCase):
             self.baseUrl = 'baseUrl'
             self.verbose = 'verbose'
 
-    class FakeObject(protocol.message.Message):
-        __metaclass__ = python_message.GeneratedProtocolMessageType
-
-        FILE = descriptor.FileDescriptor(__file__, "test", "")
-        DESCRIPTOR = descriptor.Descriptor(
-            "FakeObject",
-            "test.FakeObject",
-            filename=__file__,
-            file=FILE,
-            containing_type=None,
-            fields=[
-                descriptor.FieldDescriptor(
-                    name="name",
-                    full_name="test.FakeObject.name",
-                    index=0,
-                    number=1,
-                    type=descriptor.FieldDescriptor.TYPE_STRING,
-                    cpp_type=descriptor.FieldDescriptor.CPPTYPE_STRING,
-                    label=descriptor.FieldDescriptor.LABEL_REQUIRED,
-                    default_value="",
-                    message_type=None,
-                    enum_type=None,
-                    containing_type=None,
-                    is_extension=False,
-                    extension_scope=None
-                ),
-                descriptor.FieldDescriptor(
-                    name="id",
-                    full_name="test.FakeObject.id",
-                    index=1,
-                    number=2,
-                    type=descriptor.FieldDescriptor.TYPE_STRING,
-                    cpp_type=descriptor.FieldDescriptor.CPPTYPE_STRING,
-                    label=descriptor.FieldDescriptor.LABEL_REQUIRED,
-                    default_value="",
-                    message_type=None,
-                    enum_type=None,
-                    containing_type=None,
-                    is_extension=False,
-                    extension_scope=None
-                )
-            ], nested_types=[], enum_types=[], extensions=[])
-
     def makeFakeObject(self):
-        returnObj = self.FakeObject()
+        returnObj = fakeobj.FakeObject()
         returnObj.id = 'id'
         returnObj.name = 'name'
         return returnObj
