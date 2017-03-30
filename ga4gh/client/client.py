@@ -28,7 +28,7 @@ class AbstractClient(object):
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(log_level)
         self._serialization = serialization
-        if not serialization in protocol.MIMETYPES:
+        if serialization not in protocol.MIMETYPES:
             self._serialization = "application/protobuf"
 
     def _deserialize_response(
@@ -37,7 +37,8 @@ class AbstractClient(object):
         self._logger.debug("response:{}".format(response_string))
         if not response_string and self._serialization == "application/json":
             raise exceptions.EmptyResponseException()
-        return protocol.deserialize(response_string, self._serialization, protocol_response_class)
+        return protocol.deserialize(response_string,
+            self._serialization, protocol_response_class)
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -879,8 +880,8 @@ class HttpClient(AbstractClient):
         self._authentication_key = authentication_key
         self._id_token = id_token
         self._session = requests.Session()
-	self._serialization = serialization
-	if not self._serialization in protocol.MIMETYPES:
+        self._serialization = serialization
+        if self._serialization not in protocol.MIMETYPES:
             self._serialization = "application/protobuf"
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
@@ -892,7 +893,7 @@ class HttpClient(AbstractClient):
         Sets up the common HTTP session parameters used by requests.
         """
         headers = {"Content-type": "application/json",
-                   "Accept": self._serialization }
+                   "Accept": self._serialization}
         if (self._id_token):
             headers.update({"authorization": "Bearer {}".format(
                 self._id_token)})
@@ -974,7 +975,7 @@ class LocalClient(AbstractClient):
         super(LocalClient, self).__init__(serialization=serialization)
         self._backend = backend
         self._serialization = serialization
-	if not self._serialization in protocol.MIMETYPES:
+        if self._serialization not in protocol.MIMETYPES:
             self._serialization = "application/protobuf"
         self._get_method_map = {
             "callsets": self._backend.runGetCallSet,
@@ -1033,7 +1034,8 @@ class LocalClient(AbstractClient):
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
         search_method = self._search_method_map[object_name]
-        response_string = search_method(protocol.toJson(protocol_request), self._serialization)
+        response_string = search_method(protocol.toJson(protocol_request),
+            self._serialization)
         return self._deserialize_response(
             response_string, protocol_response_class)
 
