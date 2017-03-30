@@ -38,8 +38,8 @@ class AbstractClient(object):
         if not response_string and self._serialization == "application/json":
             raise exceptions.EmptyResponseException()
         return protocol.deserialize(response_string,
-                self._serialization,
-                protocol_response_class)
+                                    self._serialization,
+                                    protocol_response_class)
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -1036,7 +1036,7 @@ class LocalClient(AbstractClient):
             self, protocol_request, object_name, protocol_response_class):
         search_method = self._search_method_map[object_name]
         response_string = search_method(protocol.toJson(protocol_request),
-                            self._serialization)
+                                        self._serialization)
         return self._deserialize_response(
                             response_string,
                             protocol_response_class)
