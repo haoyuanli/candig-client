@@ -868,8 +868,8 @@ class HttpClient(AbstractClient):
         self._authentication_key = authentication_key
         self._id_token = id_token
         self._session = requests.Session()
-	self._serialization = serialization
-	if not self._serialization in protocol.MIMETYPES:
+        self._serialization = serialization
+        if self._serialization not in protocol.MIMETYPES:
             self._serialization = "application/protobuf"
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
@@ -881,11 +881,7 @@ class HttpClient(AbstractClient):
         Sets up the common HTTP session parameters used by requests.
         """
         headers = {"Content-type": "application/json",
-<<<<<<< HEAD
                    "Accept": self._serialization}
-=======
-                   "Accept": self._serialization }
->>>>>>> 948dce7... Enable non-json serialization
         if (self._id_token):
             headers.update({"authorization": "Bearer {}".format(
                 self._id_token)})
@@ -967,7 +963,7 @@ class LocalClient(AbstractClient):
         super(LocalClient, self).__init__(serialization=serialization)
         self._backend = backend
         self._serialization = serialization
-	if not self._serialization in protocol.MIMETYPES:
+        if self._serialization not in protocol.MIMETYPES:
             self._serialization = "application/protobuf"
         self._get_method_map = {
             "callsets": self._backend.runGetCallSet,
@@ -1026,9 +1022,11 @@ class LocalClient(AbstractClient):
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
         search_method = self._search_method_map[object_name]
-        response_string = search_method(protocol.toJson(protocol_request), self._serialization)
+        response_string = search_method(protocol.toJson(protocol_request),
+                                        self._serialization)
         return self._deserialize_response(
-            response_string, protocol_response_class)
+                            response_string,
+                            protocol_response_class)
 
     def _run_list_reference_bases_page_request(self, request):
         response_string = self._backend.runListReferenceBases(
@@ -1048,19 +1046,4 @@ class LocalClient(AbstractClient):
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
-<<<<<<< HEAD
         raise NotImplemented()
-=======
-        if path == "announce":
-            response_string = self._backend.runAddAnnouncement(
-                protocol.toJson(protocol_request), self._serialization)
-            return self._deserialize_response(
-                response_string, protocol_response_class)
-        elif path == "peers/list":
-            response_string = self._backend.runListPeers(
-                protocol.toJson(protocol_request), self._serialization)
-            return self._deserialize_response(
-                response_string, protocol_response_class)
-        else:
-            raise NotImplemented()
->>>>>>> 948dce7... Enable non-json serialization
