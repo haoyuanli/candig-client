@@ -35,7 +35,7 @@ class AbstractClient(object):
             self, response_string, protocol_response_class):
         self._protocol_bytes_received += len(response_string)
         self._logger.debug("response:{}".format(response_string))
-        if not response_string:
+        if not response_string and self._serialization == "application/json":
             raise exceptions.EmptyResponseException()
         return protocol.deserialize(response_string, self._serialization, protocol_response_class)
 
