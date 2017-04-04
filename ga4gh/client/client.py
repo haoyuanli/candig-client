@@ -32,13 +32,14 @@ class AbstractClient(object):
             self._serialization = "application/protobuf"
 
     def _deserialize_response(
-            self, response_string, protocol_response_class):
+            self, response_string, protocol_response_class,
+            content_type):
         self._protocol_bytes_received += len(response_string)
         self._logger.debug("response:{}".format(response_string))
-        if not response_string and self._serialization == "application/json":
+        if not response_string and content_type == "application/json":
             raise exceptions.EmptyResponseException()
         return protocol.deserialize(response_string,
-                                    self._serialization,
+                                    content_type,
                                     protocol_response_class)
 
     def _run_http_post_request(
@@ -1035,7 +1036,7 @@ class LocalClient(AbstractClient):
         get_method = self._get_method_map[object_name]
         response_string = get_method(id_, self._serialization)
         return self._deserialize_response(
-            response_string, protocol_response_class)
+            response_string, protocol_response_class, self._serialization)
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
@@ -1044,13 +1045,16 @@ class LocalClient(AbstractClient):
                                         self._serialization)
         return self._deserialize_response(
                             response_string,
-                            protocol_response_class)
+                            protocol_response_class,
+                            self._serialization)
 
     def _run_list_reference_bases_page_request(self, request):
         response_string = self._backend.runListReferenceBases(
             protocol.toJson(request), self._serialization)
         return self._deserialize_response(
-            response_string, protocol.ListReferenceBasesResponse)
+            response_string,
+            protocol.ListReferenceBasesResponse,
+            self._serialization)
 
     def _run_http_get_request(
             self, path, protocol_response_class):
@@ -1058,7 +1062,9 @@ class LocalClient(AbstractClient):
             response_string = self._backend.runGetInfo(
                 protocol.GetInfoRequest(), self._serialization)
             return self._deserialize_response(
-                response_string, protocol_response_class)
+                response_string,
+                protocol_response_class,
+                self._serialization)
         else:
             raise NotImplemented()
 
@@ -1068,11 +1074,15 @@ class LocalClient(AbstractClient):
             response_string = self._backend.runAddAnnouncement(
                 protocol.toJson(protocol_request), self._serialization)
             return self._deserialize_response(
-                response_string, protocol_response_class)
+                response_string,
+                protocol_response_class,
+                self._serialization)
         elif path == "peers/list":
             response_string = self._backend.runListPeers(
                 protocol.toJson(protocol_request), self._serialization)
             return self._deserialize_response(
-                response_string, protocol_response_class)
+                response_string,
+                protocol_response_class,
+                self._serialization)
         else:
             raise NotImplemented()
