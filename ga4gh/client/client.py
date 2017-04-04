@@ -873,7 +873,9 @@ class HttpClient(AbstractClient):
 
     def __init__(
             self, url_prefix, logLevel=logging.WARNING,
-            serialization="application/protobuf",
+            serialization="application/protobuf; q=1.0," +
+                          "application/x-protobuf; q=1.0," +
+                          "application/json; q=0.1",
             authentication_key=None,
             id_token=None):
         super(HttpClient, self).__init__(logLevel, serialization)
@@ -882,8 +884,6 @@ class HttpClient(AbstractClient):
         self._id_token = id_token
         self._session = requests.Session()
         self._serialization = serialization
-        if self._serialization not in protocol.MIMETYPES:
-            self._serialization = "application/protobuf"
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
         requests_log.setLevel(logLevel)
@@ -926,7 +926,8 @@ class HttpClient(AbstractClient):
         response = self._session.get(url, params=self._get_http_parameters())
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -937,7 +938,8 @@ class HttpClient(AbstractClient):
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
@@ -948,7 +950,8 @@ class HttpClient(AbstractClient):
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_get_request(self, object_name, protocol_response_class, id_):
         url_suffix = "{object_name}/{id}".format(
@@ -957,7 +960,8 @@ class HttpClient(AbstractClient):
         response = self._session.get(url, params=self._get_http_parameters())
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_list_reference_bases_page_request(self, request):
         url_suffix = "listreferencebases"
@@ -967,7 +971,8 @@ class HttpClient(AbstractClient):
             data=protocol.toJson(request))
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol.ListReferenceBasesResponse)
+            response.text, protocol.ListReferenceBasesResponse,
+            response.headers['Content-Type'])
 
 
 class LocalClient(AbstractClient):
