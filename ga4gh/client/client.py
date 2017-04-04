@@ -32,12 +32,14 @@ class AbstractClient(object):
             self._serialization = "application/protobuf"
 
     def _deserialize_response(
-            self, response_string, protocol_response_class):
+            self, response_string, protocol_response_class,
+            content_type):
         self._protocol_bytes_received += len(response_string)
         self._logger.debug("response:{}".format(response_string))
-        if not response_string and self._serialization == "application/json":
+        if not response_string and content_type == "application/json":
             raise exceptions.EmptyResponseException()
-        return protocol.deserialize(response_string, self._serialization,
+        return protocol.deserialize(response_string,
+                                    content_type,
                                     protocol_response_class)
 
     def _run_http_post_request(
@@ -860,7 +862,9 @@ class HttpClient(AbstractClient):
 
     def __init__(
             self, url_prefix, logLevel=logging.WARNING,
-            serialization="application/protobuf",
+            serialization="application/protobuf; q=1.0," +
+                          "application/x-protobuf; q=1.0," +
+                          "application/json; q=0.1",
             authentication_key=None,
             id_token=None):
         super(HttpClient, self).__init__(logLevel, serialization)
@@ -869,8 +873,6 @@ class HttpClient(AbstractClient):
         self._id_token = id_token
         self._session = requests.Session()
         self._serialization = serialization
-        if self._serialization not in protocol.MIMETYPES:
-            self._serialization = "application/protobuf"
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
         requests_log.setLevel(logLevel)
@@ -913,7 +915,8 @@ class HttpClient(AbstractClient):
         response = self._session.get(url, params=self._get_http_parameters())
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -924,7 +927,8 @@ class HttpClient(AbstractClient):
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
@@ -935,7 +939,8 @@ class HttpClient(AbstractClient):
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_get_request(self, object_name, protocol_response_class, id_):
         url_suffix = "{object_name}/{id}".format(
@@ -944,7 +949,8 @@ class HttpClient(AbstractClient):
         response = self._session.get(url, params=self._get_http_parameters())
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            response.headers['Content-Type'])
 
     def _run_list_reference_bases_page_request(self, request):
         url_suffix = "listreferencebases"
@@ -954,7 +960,8 @@ class HttpClient(AbstractClient):
             data=protocol.toJson(request))
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol.ListReferenceBasesResponse)
+            response.text, protocol.ListReferenceBasesResponse,
+            response.headers['Content-Type'])
 
 
 class LocalClient(AbstractClient):
@@ -1017,7 +1024,7 @@ class LocalClient(AbstractClient):
         get_method = self._get_method_map[object_name]
         response_string = get_method(id_, self._serialization)
         return self._deserialize_response(
-            response_string, protocol_response_class)
+            response_string, protocol_response_class, self._serialization)
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
@@ -1026,13 +1033,16 @@ class LocalClient(AbstractClient):
                                         self._serialization)
         return self._deserialize_response(
                             response_string,
-                            protocol_response_class)
+                            protocol_response_class,
+                            self._serialization)
 
     def _run_list_reference_bases_page_request(self, request):
         response_string = self._backend.runListReferenceBases(
             protocol.toJson(request), self._serialization)
         return self._deserialize_response(
-            response_string, protocol.ListReferenceBasesResponse)
+            response_string,
+            protocol.ListReferenceBasesResponse,
+            self._serialization)
 
     def _run_http_get_request(
             self, path, protocol_response_class):
@@ -1040,7 +1050,9 @@ class LocalClient(AbstractClient):
             response_string = self._backend.runGetInfo(
                 protocol.GetInfoRequest(), self._serialization)
             return self._deserialize_response(
-                response_string, protocol_response_class)
+                response_string,
+                protocol_response_class,
+                self._serialization)
         else:
             raise NotImplemented()
 
