@@ -903,6 +903,16 @@ class HttpClient(AbstractClient):
                 "Url {0} had status_code {1}".format(
                     response.url, response.status_code))
 
+    def _get_response_mimetype(self, response):
+        """
+        Returns response.headers['Content-Type'] if it exists,
+        or self._serialization if not
+        """
+        if hasattr(response, 'headers') and 'Content-Type' in response.headers:
+            return response.headers['Content-Type']
+        else:
+            return self._serialization
+
     def _get_http_parameters(self):
         """
         Returns the basic HTTP parameters we need all requests.
@@ -916,7 +926,7 @@ class HttpClient(AbstractClient):
         self._check_response_status(response)
         return self._deserialize_response(
             response.text, protocol_response_class,
-            response.headers['Content-Type'])
+            self._get_response_mimetype(response))
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -928,7 +938,7 @@ class HttpClient(AbstractClient):
         self._check_response_status(response)
         return self._deserialize_response(
             response.text, protocol_response_class,
-            response.headers['Content-Type'])
+            self._get_response_mimetype(response))
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
@@ -940,7 +950,7 @@ class HttpClient(AbstractClient):
         self._check_response_status(response)
         return self._deserialize_response(
             response.text, protocol_response_class,
-            response.headers['Content-Type'])
+            self._get_response_mimetype(response))
 
     def _run_get_request(self, object_name, protocol_response_class, id_):
         url_suffix = "{object_name}/{id}".format(
@@ -950,7 +960,7 @@ class HttpClient(AbstractClient):
         self._check_response_status(response)
         return self._deserialize_response(
             response.text, protocol_response_class,
-            response.headers['Content-Type'])
+            self._get_response_mimetype(response))
 
     def _run_list_reference_bases_page_request(self, request):
         url_suffix = "listreferencebases"
@@ -961,7 +971,7 @@ class HttpClient(AbstractClient):
         self._check_response_status(response)
         return self._deserialize_response(
             response.text, protocol.ListReferenceBasesResponse,
-            response.headers['Content-Type'])
+            self._get_response_mimetype(response))
 
 
 class LocalClient(AbstractClient):
