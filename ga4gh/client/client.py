@@ -399,6 +399,53 @@ class AbstractClient(object):
         return self._run_search_request(
             request, "variants", protocol.SearchVariantsResponse)
 
+    def search_genotypes(
+            self, variant_set_id, start=None, end=None, reference_name=None,
+            call_set_ids=None):
+        """
+        Returns a genotype matrix over the Variants fulfilling the specified
+        conditions from the specified VariantSet.
+
+        :param str variant_set_id: The ID of the
+            :class:`ga4gh.protocol.VariantSet` of interest.
+        :param int start: Required. The beginning of the window (0-based,
+            inclusive) for which overlapping variants should be returned.
+            Genomic positions are non-negative integers less than reference
+            length. Requests spanning the join of circular genomes are
+            represented as two requests one on each side of the join
+            (position 0).
+        :param int end: Required. The end of the window (0-based, exclusive)
+            for which overlapping variants should be returned.
+        :param str reference_name: The name of the
+            :class:`ga4gh.protocol.Reference` we wish to return variants from.
+        :param list call_set_ids: Only return variant calls which belong to
+            call sets with these IDs. If an empty array, returns variants
+            without any call objects. If null, returns all variant calls.
+
+        :return: An iterator over the :class:`ga4gh.protocol.Variant` objects
+            defined by the query parameters.
+        :rtype: tuple
+        """
+        request = protocol.SearchGenotypesRequest()
+        request.reference_name = pb.string(reference_name)
+        request.start = pb.int(start)
+        request.end = pb.int(end)
+        request.variant_set_id = variant_set_id
+        if call_set_ids is not None:
+            request.call_set_ids.extend(call_set_ids)
+
+        # do the paging here, then combine
+        not_done = True
+        resps = []
+        while not_done:
+            response_object = self._run_search_page_request(
+                request, "genotypes", protocol.SearchGenotypesResponse)
+            resps.append(response_object)
+            not_done = bool(response_object.next_page_token)
+            request.page_token = response_object.next_page_token
+        # assume just the one page now
+        return resps[0].genotypes, resps[0].variants, resps[0].call_set_ids
+
     def search_variant_annotations(
             self, variant_annotation_set_id, reference_name="",
             reference_id="", start=0, end=0, effects=[]):
@@ -1010,6 +1057,7 @@ class LocalClient(AbstractClient):
             "featuresets": self._backend.runSearchFeatureSets,
             "continuoussets": self._backend.runSearchContinuousSets,
             "variants": self._backend.runSearchVariants,
+            "genotypes": self._backend.runSearchGenotypes,
             "features": self._backend.runSearchFeatures,
             "continuous": self._backend.runSearchContinuous,
             "readgroupsets": self._backend.runSearchReadGroupSets,

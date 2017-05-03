@@ -504,9 +504,10 @@ class VariantFormatterMixin(object):
         """
         for variant in gaObjects:
             print(
-                variant.id, variant.variant_set_id, variant.names,
+                variant.id, variant.variant_set_id, list(variant.names),
                 variant.reference_name, variant.start, variant.end,
-                variant.reference_bases, variant.alternate_bases,
+                variant.reference_bases,
+                "".join(list(variant.alternate_bases)),
                 sep="\t", end="\t")
             for key, value in variant.attributes.attr.items():
                 val = value.values[0].string_value
@@ -515,9 +516,37 @@ class VariantFormatterMixin(object):
             for c in variant.calls:
                 print(
                     c.call_set_id,
-                    c.genotype.__str__().replace('\n', ''),
+                    list(c.genotype).__str__().replace('\n', ''),
                     c.genotype_likelihood, c.attributes,
                     c.phaseset, sep=":", end="\t")
+            print()
+
+
+class GenotypesFormatterMixin(object):
+    """
+    Simple mixin to format variant objects.
+    """
+    def _textOutput(self, gaObjects):
+        """
+        Prints out the specified Variant objects in a VCF-like form.
+        """
+        genotypes, variants, calls = gaObjects
+        genotype_mtx = list(genotypes.genotypes)
+        nrow = genotypes.nvariants
+        ncol = len(genotypes.genotypes)//nrow
+        print(list(calls))
+        for row in range(nrow):
+            print(list(genotype_mtx[row*ncol:(row+1)*ncol]))
+        for variant in variants:
+            print(
+                variant.id, variant.variant_set_id, list(variant.names),
+                variant.reference_name, variant.start, variant.end,
+                variant.reference_bases,
+                "".join(list(variant.alternate_bases)),
+                sep="\t", end="\t")
+            for key, value in variant.attributes.attr.items():
+                val = value.values[0].string_value
+                print(key, val, sep="=", end=";")
             print()
 
 
@@ -601,6 +630,39 @@ class SearchVariantsRunner(VariantFormatterMixin, AbstractSearchRunner):
             variant_set_id=variantSetId,
             call_set_ids=self._callSetIds)
         self._output(iterator)
+
+    def run(self):
+        if self._variantSetId is None:
+            for variantSet in self.getAllVariantSets():
+                self._run(variantSet.id)
+        else:
+            self._run(self._variantSetId)
+
+
+class SearchGenotypesRunner(GenotypesFormatterMixin, AbstractSearchRunner):
+    """
+    Runner class for the variants/search method.
+    """
+    def __init__(self, args):
+        super(SearchGenotypesRunner, self).__init__(args)
+        self._referenceName = args.referenceName
+        self._variantSetId = args.variantSetId
+        self._start = args.start
+        self._end = args.end
+        if args.callSetIds == []:
+            self._callSetIds = []
+        elif args.callSetIds == '*':
+            self._callSetIds = None
+        else:
+            self._callSetIds = args.callSetIds.split(",")
+
+    def _run(self, variantSetId):
+        gts, variants, callsetnames = self._client.search_genotypes(
+            start=self._start, end=self._end,
+            reference_name=self._referenceName,
+            variant_set_id=variantSetId,
+            call_set_ids=self._callSetIds)
+        self._output((gts, variants, callsetnames))
 
     def run(self):
         if self._variantSetId is None:
@@ -1053,6 +1115,13 @@ def addVariantSearchOptions(parser):
     addPageSizeArgument(parser)
 
 
+def addGenotypeSearchOptions(parser):
+    """
+    Adds common options to a genotype searches command line parser.
+    """
+    addVariantSearchOptions(parser)
+
+
 def addAnnotationsSearchOptions(parser):
     """
     Adds common options to a annotation searches command line parser.
@@ -1344,6 +1413,16 @@ def addVariantsSearchParser(subparsers):
     addUrlArgument(parser)
     addOutputFormatArgument(parser)
     addVariantSearchOptions(parser)
+    return parser
+
+
+def addGenotypesSearchParser(subparsers):
+    parser = cli.addSubparser(
+        subparsers, "genotypes-search", "Search for variants")
+    parser.set_defaults(runner=SearchGenotypesRunner)
+    addUrlArgument(parser)
+    addOutputFormatArgument(parser)
+    addGenotypeSearchOptions(parser)
     return parser
 
 
@@ -1783,6 +1862,7 @@ def getClientParser():
     addHelpParser(subparsers)
     addGetInfoParser(subparsers)
     addVariantsSearchParser(subparsers)
+    addGenotypesSearchParser(subparsers)
     addVariantSetsSearchParser(subparsers)
     addVariantAnnotationSearchParser(subparsers)
     addVariantAnnotationSetsSearchParser(subparsers)
