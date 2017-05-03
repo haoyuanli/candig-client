@@ -444,11 +444,18 @@ class AbstractClient(object):
         request.end = pb.int(end)
         request.variant_set_id = variant_set_id
         request.call_set_ids.extend(pb.string(call_set_ids))
+
         # do the paging here, then combine
-        result = [page for page in self._run_search_request(
-            request, "genotypes", protocol.SearchGenotypesResponse)]
+        not_done = True
+        resps = []
+        while not_done:
+            response_object = self._run_search_page_request(
+                request, "genotypes", protocol.SearchGenotypesResponse)
+            resps.append(response_object)
+            not_done = bool(response_object.next_page_token)
+            request.page_token = response_object.next_page_token
         # assume just the one page now
-        return result[0].genotypes, result[0].variants, result[0].call_set_ids
+        return resps[0].genotypes, resps[0].variants, resps[0].call_set_ids
 
     def search_variant_annotations(
             self, variant_annotation_set_id, reference_name="",
