@@ -443,7 +443,8 @@ class AbstractClient(object):
         request.start = pb.int(start)
         request.end = pb.int(end)
         request.variant_set_id = variant_set_id
-        request.call_set_ids.extend(pb.string(call_set_ids))
+        if call_set_ids is not None:
+            request.call_set_ids.extend(call_set_ids)
 
         # do the paging here, then combine
         not_done = True
