@@ -1,3 +1,4 @@
+
 """
 Client classes for the GA4GH reference implementation.
 """
@@ -8,7 +9,7 @@ from __future__ import unicode_literals
 import requests
 import posixpath
 import logging
-
+import oidc
 import ga4gh.client.exceptions as exceptions
 
 import ga4gh.schemas.pb as pb
@@ -20,24 +21,24 @@ class AbstractClient(object):
     The abstract superclass of GA4GH Client objects.
     """
 
-    def __init__(self, log_level=0, serialization="application/protobuf"):
+    def __init__(self, log_level=0):
         self._page_size = None
         self._log_level = log_level
         self._protocol_bytes_received = 0
         logging.basicConfig()
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(log_level)
-        self._serialization = serialization
-        if not serialization in protocol.MIMETYPES:
-            self._serialization = "application/protobuf"
+        #Added authentication
 
+        
+        
     def _deserialize_response(
-            self, response_string, protocol_response_class):
-        self._protocol_bytes_received += len(response_string)
-        self._logger.debug("response:{}".format(response_string))
-        if not response_string:
+            self, json_response_string, protocol_response_class):
+        self._protocol_bytes_received += len(json_response_string)
+        self._logger.debug("response:{}".format(json_response_string))
+        if not json_response_string:
             raise exceptions.EmptyResponseException()
-        return protocol.deserialize(response_string, self._serialization, protocol_response_class)
+        return protocol.fromJson(json_response_string, protocol_response_class)
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -86,11 +87,11 @@ class AbstractClient(object):
         listAttr.  If pages of results are present, repeat this process
         until the pageToken is null.
         """
+        
         not_done = True
         while not_done:
             response_object = self._run_search_page_request(
-                protocol_request, object_name, protocol_response_class,
-                self._serialization)
+                protocol_request, object_name, protocol_response_class)
             value_list = getattr(
                 response_object,
                 protocol.getValueListName(protocol_response_class))
@@ -866,20 +867,18 @@ class HttpClient(AbstractClient):
         server after logging in.
     :param str id_token: The Auth0 id_token key provided by the
         server after logging in.
-    :param str serialization: "application/protobuf" or "application/json",
-        the serialization protocol used for the protobuf objects
     """
 
     def __init__(
             self, url_prefix, logLevel=logging.WARNING,
-            serialization="application/protobuf",
             authentication_key=None,
             id_token=None):
-        super(HttpClient, self).__init__(logLevel, serialization)
+        super(HttpClient, self).__init__(logLevel)
         self._url_prefix = url_prefix
         self._authentication_key = authentication_key
         self._id_token = id_token
         self._session = requests.Session()
+        self.token = oidc.keycloakClientCredentialsLogin()
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
         requests_log.setLevel(logLevel)
@@ -889,8 +888,7 @@ class HttpClient(AbstractClient):
         """
         Sets up the common HTTP session parameters used by requests.
         """
-        headers = {"Content-type": "application/json",
-                   "Accept": super(self)._serialization }
+        headers = {"Content-type": "application/json"}
         if (self._id_token):
             headers.update({"authorization": "Bearer {}".format(
                 self._id_token)})
@@ -918,6 +916,9 @@ class HttpClient(AbstractClient):
 
     def _run_http_get_request(
             self, path, protocol_response_class):
+        if not oidc.isTokenValid(self.token):
+            print("Hi")
+            raise oidc.InvalidTokenException("Error")
         url = posixpath.join(self._url_prefix, path)
         response = self._session.get(url, params=self._get_http_parameters())
         self._check_response_status(response)
@@ -926,6 +927,8 @@ class HttpClient(AbstractClient):
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
+        if not oidc.isTokenValid(self.token):
+            raise oidc.InvalidTokenException()
         url = posixpath.join(self._url_prefix, path)
         data = protocol.toJson(protocol_request)
         self._logger.debug("request:{}".format(data))
@@ -937,10 +940,11 @@ class HttpClient(AbstractClient):
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
+        if not oidc.isTokenValid(self.token):
+            raise oidc.InvalidTokenException()
         url = posixpath.join(self._url_prefix, object_name + '/search')
         data = protocol.toJson(protocol_request)
         self._logger.debug("request:{}".format(data))
-        self._session.headers.update(headers)
         response = self._session.post(
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
@@ -948,6 +952,8 @@ class HttpClient(AbstractClient):
             response.text, protocol_response_class)
 
     def _run_get_request(self, object_name, protocol_response_class, id_):
+        if not oidc.isTokenValid(self.token):
+            raise oidc.InvalidTokenException()
         url_suffix = "{object_name}/{id}".format(
             object_name=object_name, id=id_)
         url = posixpath.join(self._url_prefix, url_suffix)
@@ -957,6 +963,8 @@ class HttpClient(AbstractClient):
             response.text, protocol_response_class)
 
     def _run_list_reference_bases_page_request(self, request):
+        if not oidc.isTokenValid(self.token):
+            raise oidc.InvalidTokenException()
         url_suffix = "listreferencebases"
         url = posixpath.join(self._url_prefix, url_suffix)
         response = self._session.post(

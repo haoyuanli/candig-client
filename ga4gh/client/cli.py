@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import json
 import logging
 import requests
+import oidc
 
 import ga4gh.client
 import ga4gh.client.client as client
@@ -1884,8 +1885,13 @@ def getClientParser():
 
 
 def client_main(args=None):
+#    token = oidc.keycloak_login()
     parser = getClientParser()
     parsedArgs = parser.parse_args(args)
+
+    
+#    r = requests.post('http://142.1.33.237:8080/', data = token)
+
     if "runner" not in parsedArgs:
         parser.print_help()
     else:

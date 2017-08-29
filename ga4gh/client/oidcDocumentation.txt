@@ -1,0 +1,71 @@
+Keycloak-OIDC Client Documentation
+
+Excuse the fact that this was written in a txt; there is no Microsoft Word or such on this compuetr. 
+
+
+Keycloak-OIDC Grant Types
+
+When you log onto the administration console of Keycloak, click on Clients and pick a client, any client.
+Scrolling down on the page, you'll see 5 switches that say either "ON" or "OFF", and are labelled
+- Standard Flow Enabled
+- Implicit Flow Enabled
+- Direct Access Grants Enabled
+- Service Accounts Enabled
+- Authorization Enabled
+These are the different OAuth2 flows (Not OIDC flows), albeit some of them are named a bit funny. 
+
+Keycloak Name = OAUTH2 name
+Standard Flow = Authorization Code Flow
+Implict Flow = Implicit flow
+Direct Access Grants = Client Credentials flow
+Service Accounts = Resource Owner Flow
+
+In order to enable any of those flows, you simply have to click the button that says OFF, and it'll switch to a blue ON. 
+Once you've done that, all the standard OAUTH2 flows will be available, albeit named funny. 
+
+With regards to these different flows, I've tested 3 of them: standard, direct access grants and service accounts.
+
+
+Standard Flow (Authorization Code flow)
+This one is much like the type of authorization flow that you'd see if using google's OIDC on a web app
+That is, when you open it up and log in, it'll lead you to a page asking you to allow or deny access to basic information.
+If you click accept, it'll redirect you to the redirect url specified in the original request to the authorization endpoint. 
+
+The issue with this flow with respect to the purposes of this project (Using keycloak as an intermediary to authenticate 
+users prior to giving access to data on a ga4gh server) is that it requires a web interface for the user to authenticate.
+This is problematic because most of the time, we want this stuff to be fully automated, right? 
+
+This flow exists under the form of keycloakLogin(). 
+In any case, there's a workaround included in my library that uses a virtual frame buffer combined with Selenium to log in, if you reall ywant to use authorization codeflow. Should give you a pretty good idea of what you need. 
+
+Steps in using this code flow: 
+1) Enable this flow in Keycloak (Enabled by default) 
+2) Create a dictionary containing the scope (Must contain at least openid), redirect_uri, response type (code), and a client id. 
+3) Make a GET request to the openid-configuration endpoint to obtain a list of other endpoints
+4) Make a GET request to the authorization_endpoint in the list of endpoints, with params set to your dictionary containing the data
+5) Wait for user to login by entering username/password and allow access
+6) Grab URL from browser, which will contain the authorization code
+7) Create a second dictionary containing the authorization code obtained from the url, grant_type ('authorization_code'), redirect_uri, client_id, and client_secret. 
+8) Post this second dictionary to the token endpoint
+9) Parse the POST response in order to get the user's token
+
+
+
+Direct Access Grant (Client Credentials Grant) 
+This is the one that I believe we will be using the most, as this allows for command line based authorization. 
+In this one, you merely send your user's data to the server, the server responds with a token, and voila, you're done.
+No real issues with this codeflow other than the fact that the user's password is sent over the connection as plaintext
+
+This flow exists under the form of keycloakClientCredentialsLogin()
+1) Enable this flow in Keycloak (Under the name of "Direct access grant" on the client page in Keycloak)
+2) Create a dictionary containing grant_type (value of of 'password'), client_id, client_secret, scope (At least 'openid'), username, and password (In plaintext, no encoding it)
+3) Make a GET request to the endpoints url of your Keycloak server
+4) Make a POST request to the token_endpoint with the parameter "data" being the dictionary from step 2
+5) Parse the POST response in order to get the user's token.
+
+
+Service Accounts Grant (Resource Owner Grant)
+I did not quite understand the point of this grant, nor did I really seem to understand how it could be useful. 
+You do not need any user credentials. You simply send in a grant type, client id, scope, and client secret into the 
+authorization_endpoint and then it seems to return a token. I was not unsure of how this could be useful so I did not 
+investigate any further. 
