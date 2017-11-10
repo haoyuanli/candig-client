@@ -28,7 +28,7 @@ class AbstractClient(object):
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(log_level)
         self._serialization = serialization
-        if not serialization in protocol.MIMETYPES:
+        if serialization not in protocol.MIMETYPES:
             self._serialization = "application/protobuf"
 
     def _deserialize_response(
@@ -37,7 +37,8 @@ class AbstractClient(object):
         self._logger.debug("response:{}".format(response_string))
         if not response_string:
             raise exceptions.EmptyResponseException()
-        return protocol.deserialize(response_string, self._serialization, protocol_response_class)
+        return protocol.deserialize(response_string, self._serialization,
+                                    protocol_response_class)
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -89,8 +90,7 @@ class AbstractClient(object):
         not_done = True
         while not_done:
             response_object = self._run_search_page_request(
-                protocol_request, object_name, protocol_response_class,
-                self._serialization)
+                protocol_request, object_name, protocol_response_class)
             value_list = getattr(
                 response_object,
                 protocol.getValueListName(protocol_response_class))
@@ -890,7 +890,7 @@ class HttpClient(AbstractClient):
         Sets up the common HTTP session parameters used by requests.
         """
         headers = {"Content-type": "application/json",
-                   "Accept": super(self)._serialization }
+                   "Accept": self._serialization}
         if (self._id_token):
             headers.update({"authorization": "Bearer {}".format(
                 self._id_token)})
@@ -940,7 +940,6 @@ class HttpClient(AbstractClient):
         url = posixpath.join(self._url_prefix, object_name + '/search')
         data = protocol.toJson(protocol_request)
         self._logger.debug("request:{}".format(data))
-        self._session.headers.update(headers)
         response = self._session.post(
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
