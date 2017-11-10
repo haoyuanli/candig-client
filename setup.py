@@ -23,7 +23,8 @@ with open("requirements.txt") as requirementsFile:
         pinnedVersion = line.split()[0]
         install_requires.append(pinnedVersion)
 
-dependency_links = []
+dependency_links = ["git+git://github.com/ljdursi/ga4gh-schemas.git@genotypes#egg=ga4gh_schemas"]
+
 try:
     with open("constraints.txt") as constraintsFile:
         for line in constraintsFile:
