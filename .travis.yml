@@ -13,7 +13,8 @@ install:
   - pip install setuptools
 #  - python setup.py sdist
 #  - pip install dist/ga4gh_client*.tar.gz  --process-dependency-links --allow-all-external
-  - pip install -r requirements.txt -c constraints.txt --upgrade --no-cache-dir .
+  - pip install -r requirements.txt -c constraints.txt --upgrade --no-cache-dir
+  - python setup.py install
 # every installable in setup.py's entry_points should be tested here
   - ga4gh_client --version
 
