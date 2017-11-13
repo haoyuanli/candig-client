@@ -187,18 +187,6 @@ class AbstractClient(object):
         return self._run_get_request_path(
             "info", protocol.GetInfoResponse)
 
-    def list_peers(self):
-        return self._run_list_request(
-            protocol.ListPeersRequest(),
-            "peers/list",
-            protocol.ListPeersResponse)
-
-    def announce(self, url):
-        request = protocol.AnnouncePeerRequest()
-        request.peer.url = url
-        return self._run_post_request(
-            request, "announce", protocol.AnnouncePeerResponse)
-
     def get_dataset(self, dataset_id):
         """
         Returns the Dataset with the specified ID from the server.
@@ -1050,15 +1038,4 @@ class LocalClient(AbstractClient):
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
-        if path == "announce":
-            response_json = self._backend.runAddAnnouncement(
-                protocol.toJson(protocol_request))
-            return self._deserialize_response(
-                response_json, protocol_response_class)
-        elif path == "peers/list":
-            response_json = self._backend.runListPeers(
-                protocol.toJson(protocol_request))
-            return self._deserialize_response(
-                response_json, protocol_response_class)
-        else:
-            raise NotImplemented()
+        raise NotImplemented()
