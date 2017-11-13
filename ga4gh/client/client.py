@@ -27,9 +27,9 @@ class AbstractClient(object):
         logging.basicConfig()
         self._logger = logging.getLogger(__name__)
         self._logger.setLevel(log_level)
-        self.serialization = serialization
+        self._serialization = serialization
         if serialization not in protocol.MIMETYPES:
-            self.serialization = "application/protobuf"
+            self._serialization = "application/protobuf"
 
     def _deserialize_response(
             self, response_string, protocol_response_class):
@@ -37,7 +37,7 @@ class AbstractClient(object):
         self._logger.debug("response:{}".format(response_string))
         if not response_string:
             raise exceptions.EmptyResponseException()
-        return protocol.deserialize(response_string, self.serialization,
+        return protocol.deserialize(response_string, self._serialization,
                                     protocol_response_class)
 
     def _run_http_post_request(
@@ -90,8 +90,7 @@ class AbstractClient(object):
         not_done = True
         while not_done:
             response_object = self._run_search_page_request(
-                protocol_request, object_name, protocol_response_class,
-                self.serialization)
+                protocol_request, object_name, protocol_response_class)
             value_list = getattr(
                 response_object,
                 protocol.getValueListName(protocol_response_class))
@@ -891,7 +890,7 @@ class HttpClient(AbstractClient):
         Sets up the common HTTP session parameters used by requests.
         """
         headers = {"Content-type": "application/json",
-                   "Accept": self.serialization}
+                   "Accept": self._serialization}
         if (self._id_token):
             headers.update({"authorization": "Bearer {}".format(
                 self._id_token)})
