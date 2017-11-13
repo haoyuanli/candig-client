@@ -32,12 +32,14 @@ class AbstractClient(object):
             self._serialization = "application/protobuf"
 
     def _deserialize_response(
-            self, response_string, protocol_response_class):
+            self, response_string, protocol_response_class,
+            content_type):
         self._protocol_bytes_received += len(response_string)
         self._logger.debug("response:{}".format(response_string))
-        if not response_string:
+        if not response_string and content_type == "application/json":
             raise exceptions.EmptyResponseException()
-        return protocol.deserialize(response_string, self._serialization,
+        return protocol.deserialize(response_string,
+                                    content_type,
                                     protocol_response_class)
 
     def _run_http_post_request(
@@ -396,6 +398,53 @@ class AbstractClient(object):
         request.page_size = pb.int(self._page_size)
         return self._run_search_request(
             request, "variants", protocol.SearchVariantsResponse)
+
+    def search_genotypes(
+            self, variant_set_id, start=None, end=None, reference_name=None,
+            call_set_ids=None):
+        """
+        Returns a genotype matrix over the Variants fulfilling the specified
+        conditions from the specified VariantSet.
+
+        :param str variant_set_id: The ID of the
+            :class:`ga4gh.protocol.VariantSet` of interest.
+        :param int start: Required. The beginning of the window (0-based,
+            inclusive) for which overlapping variants should be returned.
+            Genomic positions are non-negative integers less than reference
+            length. Requests spanning the join of circular genomes are
+            represented as two requests one on each side of the join
+            (position 0).
+        :param int end: Required. The end of the window (0-based, exclusive)
+            for which overlapping variants should be returned.
+        :param str reference_name: The name of the
+            :class:`ga4gh.protocol.Reference` we wish to return variants from.
+        :param list call_set_ids: Only return variant calls which belong to
+            call sets with these IDs. If an empty array, returns variants
+            without any call objects. If null, returns all variant calls.
+
+        :return: An iterator over the :class:`ga4gh.protocol.Variant` objects
+            defined by the query parameters.
+        :rtype: tuple
+        """
+        request = protocol.SearchGenotypesRequest()
+        request.reference_name = pb.string(reference_name)
+        request.start = pb.int(start)
+        request.end = pb.int(end)
+        request.variant_set_id = variant_set_id
+        if call_set_ids is not None:
+            request.call_set_ids.extend(call_set_ids)
+
+        # do the paging here, then combine
+        not_done = True
+        resps = []
+        while not_done:
+            response_object = self._run_search_page_request(
+                request, "genotypes", protocol.SearchGenotypesResponse)
+            resps.append(response_object)
+            not_done = bool(response_object.next_page_token)
+            request.page_token = response_object.next_page_token
+        # assume just the one page now
+        return resps[0].genotypes, resps[0].variants, resps[0].call_set_ids
 
     def search_variant_annotations(
             self, variant_annotation_set_id, reference_name="",
@@ -860,7 +909,9 @@ class HttpClient(AbstractClient):
 
     def __init__(
             self, url_prefix, logLevel=logging.WARNING,
-            serialization="application/protobuf",
+            serialization="application/protobuf; q=1.0," +
+                          "application/x-protobuf; q=1.0," +
+                          "application/json; q=0.1",
             authentication_key=None,
             id_token=None):
         super(HttpClient, self).__init__(logLevel, serialization)
@@ -868,6 +919,7 @@ class HttpClient(AbstractClient):
         self._authentication_key = authentication_key
         self._id_token = id_token
         self._session = requests.Session()
+        self._serialization = serialization
         self._setup_http_session()
         requests_log = logging.getLogger("requests.packages.urllib3")
         requests_log.setLevel(logLevel)
@@ -898,6 +950,16 @@ class HttpClient(AbstractClient):
                 "Url {0} had status_code {1}".format(
                     response.url, response.status_code))
 
+    def _get_response_mimetype(self, response):
+        """
+        Returns response.headers['Content-Type'] if it exists,
+        or self._serialization if not
+        """
+        if hasattr(response, 'headers') and 'Content-Type' in response.headers:
+            return response.headers['Content-Type']
+        else:
+            return self._serialization
+
     def _get_http_parameters(self):
         """
         Returns the basic HTTP parameters we need all requests.
@@ -910,7 +972,8 @@ class HttpClient(AbstractClient):
         response = self._session.get(url, params=self._get_http_parameters())
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            self._get_response_mimetype(response))
 
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
@@ -921,7 +984,8 @@ class HttpClient(AbstractClient):
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            self._get_response_mimetype(response))
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
@@ -932,7 +996,8 @@ class HttpClient(AbstractClient):
             url, params=self._get_http_parameters(), data=data)
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            self._get_response_mimetype(response))
 
     def _run_get_request(self, object_name, protocol_response_class, id_):
         url_suffix = "{object_name}/{id}".format(
@@ -941,7 +1006,8 @@ class HttpClient(AbstractClient):
         response = self._session.get(url, params=self._get_http_parameters())
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol_response_class)
+            response.text, protocol_response_class,
+            self._get_response_mimetype(response))
 
     def _run_list_reference_bases_page_request(self, request):
         url_suffix = "listreferencebases"
@@ -951,14 +1017,18 @@ class HttpClient(AbstractClient):
             data=protocol.toJson(request))
         self._check_response_status(response)
         return self._deserialize_response(
-            response.text, protocol.ListReferenceBasesResponse)
+            response.text, protocol.ListReferenceBasesResponse,
+            self._get_response_mimetype(response))
 
 
 class LocalClient(AbstractClient):
 
-    def __init__(self, backend):
-        super(LocalClient, self).__init__()
+    def __init__(self, backend, serialization="application/protobuf"):
+        super(LocalClient, self).__init__(serialization=serialization)
         self._backend = backend
+        self._serialization = serialization
+        if self._serialization not in protocol.MIMETYPES:
+            self._serialization = "application/protobuf"
         self._get_method_map = {
             "callsets": self._backend.runGetCallSet,
             "datasets": self._backend.runGetDataset,
@@ -987,6 +1057,7 @@ class LocalClient(AbstractClient):
             "featuresets": self._backend.runSearchFeatureSets,
             "continuoussets": self._backend.runSearchContinuousSets,
             "variants": self._backend.runSearchVariants,
+            "genotypes": self._backend.runSearchGenotypes,
             "features": self._backend.runSearchFeatures,
             "continuous": self._backend.runSearchContinuous,
             "readgroupsets": self._backend.runSearchReadGroupSets,
@@ -1009,30 +1080,37 @@ class LocalClient(AbstractClient):
 
     def _run_get_request(self, object_name, protocol_response_class, id_):
         get_method = self._get_method_map[object_name]
-        response_json = get_method(id_)
+        response_string = get_method(id_, self._serialization)
         return self._deserialize_response(
-            response_json, protocol_response_class)
+            response_string, protocol_response_class, self._serialization)
 
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
         search_method = self._search_method_map[object_name]
-        response_json = search_method(protocol.toJson(protocol_request))
+        response_string = search_method(protocol.toJson(protocol_request),
+                                        self._serialization)
         return self._deserialize_response(
-            response_json, protocol_response_class)
+                            response_string,
+                            protocol_response_class,
+                            self._serialization)
 
     def _run_list_reference_bases_page_request(self, request):
-        response_json = self._backend.runListReferenceBases(
-            protocol.toJson(request))
+        response_string = self._backend.runListReferenceBases(
+            protocol.toJson(request), self._serialization)
         return self._deserialize_response(
-            response_json, protocol.ListReferenceBasesResponse)
+            response_string,
+            protocol.ListReferenceBasesResponse,
+            self._serialization)
 
     def _run_http_get_request(
             self, path, protocol_response_class):
         if path == "info":
-            response_json = self._backend.runGetInfo(
-                protocol.GetInfoRequest())
+            response_string = self._backend.runGetInfo(
+                protocol.GetInfoRequest(), self._serialization)
             return self._deserialize_response(
-                response_json, protocol_response_class)
+                response_string,
+                protocol_response_class,
+                self._serialization)
         else:
             raise NotImplemented()
 
