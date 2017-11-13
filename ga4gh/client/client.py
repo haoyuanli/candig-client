@@ -185,10 +185,6 @@ class AbstractClient(object):
         """
         return self._protocol_bytes_received
 
-    def get_info(self):
-        return self._run_get_request_path(
-            "info", protocol.GetInfoResponse)
-
     def get_dataset(self, dataset_id):
         """
         Returns the Dataset with the specified ID from the server.
@@ -1104,14 +1100,6 @@ class LocalClient(AbstractClient):
 
     def _run_http_get_request(
             self, path, protocol_response_class):
-        if path == "info":
-            response_string = self._backend.runGetInfo(
-                protocol.GetInfoRequest(), self._serialization)
-            return self._deserialize_response(
-                response_string,
-                protocol_response_class,
-                self._serialization)
-        else:
             raise NotImplemented()
 
     def _run_http_post_request(
