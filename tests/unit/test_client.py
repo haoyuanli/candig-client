@@ -423,8 +423,3 @@ class TestSearchMethodsCallRunRequest(unittest.TestCase):
         self.httpClient._run_search_request.assert_called_once_with(
             request, "phenotypeassociationsets",
             protocol.SearchPhenotypeAssociationSetsResponse)
-
-    def testGetInfo(self):
-        self.httpClient.get_info()
-        self.httpClient._run_get_request_path.assert_called_once_with(
-            "info", protocol.GetInfoResponse)
