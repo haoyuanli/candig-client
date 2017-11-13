@@ -891,7 +891,7 @@ class HttpClient(AbstractClient):
         Sets up the common HTTP session parameters used by requests.
         """
         headers = {"Content-type": "application/json",
-                   "Accept": super(HttpClient, self).serialization}
+                   "Accept": self.serialization}
         if (self._id_token):
             headers.update({"authorization": "Bearer {}".format(
                 self._id_token)})
