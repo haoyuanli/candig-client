@@ -6,15 +6,14 @@ sudo: false
 cache:
   directories:
     - $HOME/.cache/pip
-    - /tmp/proto3.1.0
+    - /tmp/proto3.3.2
 
 install:
   - pip install pip --upgrade
   - pip install setuptools
-#  - python setup.py sdist
-#  - pip install dist/ga4gh_client*.tar.gz  --process-dependency-links --allow-all-external
+  - python setup.py sdist
+  - pip install dist/ga4gh_client*.tar.gz
   - pip install -r requirements.txt -c constraints.txt --upgrade --no-cache-dir
-  - python setup.py install
 # every installable in setup.py's entry_points should be tested here
   - ga4gh_client --version
 
@@ -22,8 +21,8 @@ before_script:
   - pip install -r dev-requirements.txt -c constraints.txt
 
 before_install:
-  - bash tools/travis-install-protoc.sh 3.1.0
-  - export PATH=/tmp/proto3.1.0/bin:$PATH
+  - bash tools/travis-install-protoc.sh 3.3.2
+  - export PATH=/tmp/proto3.3.2/bin:$PATH
 
 # run_tests.py runs everything under the script: tag so only put commands
 # under it that we want to run (and want to be able to run) as local tests
