@@ -905,21 +905,6 @@ class SearchExpressionLevelsRunner(AbstractSearchRunner):
             print()
 
 
-class GetInfoRunner(FormattedOutputRunner):
-    def __init__(self, args):
-        super(GetInfoRunner, self).__init__(args)
-
-    def run(self):
-        response = self._client.get_info()
-        self._output(response)
-
-    def _textOutput(self, response):
-        print("Protocol version: {}".format(response.protocol_version))
-
-    def _jsonOutput(self, response):
-        print(protocol.toJson(response))
-
-
 # ListReferenceBases is an oddball, and doesn't fit either get or
 # search patterns.
 class ListReferenceBasesRunner(AbstractQueryRunner):
@@ -1846,21 +1831,11 @@ def addPhenotypeAssociationSetsSearchParser(subparsers):
     addPageSizeArgument(parser)
 
 
-def addGetInfoParser(subparsers):
-    parser = cli.addSubparser(
-        subparsers, "get-info",
-        "Get info about a ervice")
-    parser.set_defaults(runner=GetInfoRunner)
-    addUrlArgument(parser)
-    addOutputFormatArgument(parser)
-
-
 def getClientParser():
     parser = cli.createArgumentParser("GA4GH reference client")
     addClientGlobalOptions(parser)
     subparsers = parser.add_subparsers(title='subcommands',)
     addHelpParser(subparsers)
-    addGetInfoParser(subparsers)
     addVariantsSearchParser(subparsers)
     addGenotypesSearchParser(subparsers)
     addVariantSetsSearchParser(subparsers)
