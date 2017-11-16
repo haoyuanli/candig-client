@@ -160,6 +160,28 @@ class AbstractClient(object):
         return self._run_get_request(
             "individuals", protocol.Individual, individual_id)
 
+    def get_experiment(self, experiment_id):
+        """
+        Perform a get request for the given Experiment.
+
+        :param str experiment_id: The ID of the Experiment
+        :return: The requested Experiment.
+        :rtype: :class:`ga4gh.protocol.Experiment`
+        """
+        return self._run_get_request(
+            "experiments", protocol.Experiment, experiment_id)
+
+    def get_analysis(self, analysis_id):
+        """
+        Perform a get request for the given Analysis.
+
+        :param str experiment_id: The ID of the Analysis
+        :return: The requested Analysis.
+        :rtype: :class:`ga4gh.protocol.Analysis`
+        """
+        return self._run_get_request(
+            "analyses", protocol.Analysis, analysis_id)
+
     def get_page_size(self):
         """
         Returns the suggested maximum size of pages of results returned by
@@ -728,6 +750,40 @@ class AbstractClient(object):
         return self._run_search_request(
             request, "individuals", protocol.SearchIndividualsResponse)
 
+    def search_experiments(self, dataset_id, name=None):
+        """
+        Returns an iterator over the Individuals fulfilling the specified
+        conditions.
+
+        :param str dataset_id: The dataset to search within.
+        :param str name: Only Experiments matching the specified name will
+            be returned.
+        :return: An iterator over the :class:`ga4gh.protocol.Experiment`
+            objects defined by the query parameters.
+        """
+        request = protocol.SearchExperimentsRequest()
+        request.name = pb.string(name)
+        request.page_size = pb.int(self._page_size)
+        return self._run_search_request(
+            request, "experiments", protocol.SearchExperimentsResponse)
+
+    def search_analyses(self, dataset_id, name=None):
+        """
+        Returns an iterator over the Analyses fulfilling the specified
+        conditions.
+
+        :param str dataset_id: The dataset to search within.
+        :param str name: Only Analyses matching the specified name will
+            be returned.
+        :return: An iterator over the :class:`ga4gh.protocol.Analysis`
+            objects defined by the query parameters.
+        """
+        request = protocol.SearchAnalysesRequest()
+        request.name = pb.string(name)
+        request.page_size = pb.int(self._page_size)
+        return self._run_search_request(
+            request, "analyses", protocol.SearchAnalysesResponse)
+
     def search_read_group_sets(
             self, dataset_id, name=None, biosample_id=None):
         """
@@ -1040,6 +1096,8 @@ class LocalClient(AbstractClient):
             "variantannotationsets": self._backend.runGetVariantAnnotationSet,
             "biosamples": self._backend.runGetBiosample,
             "individuals": self._backend.runGetIndividual,
+            "experiments": self._backend.runGetExperiment,
+            "analyses": self._backend.runGetAnalysis,
             "rnaquantificationsets": self._backend.runGetRnaQuantificationSet,
             "rnaquantifications": self._backend.runGetRnaQuantification,
             "expressionlevels": self._backend.runGetExpressionLevel,
@@ -1063,6 +1121,8 @@ class LocalClient(AbstractClient):
                 self._backend.runSearchVariantAnnotationSets,
             "biosamples": self._backend.runSearchBiosamples,
             "individuals": self._backend.runSearchIndividuals,
+            "experiments": self._backend.runSearchExperiments,
+            "analyses": self._backend.runSearchAnalyses,
             "featurephenotypeassociations":
                 self._backend.runSearchGenotypePhenotypes,
             "phenotypes": self._backend.runSearchPhenotypes,

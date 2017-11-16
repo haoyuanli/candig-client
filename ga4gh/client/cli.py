@@ -301,7 +301,53 @@ class SearchIndividualsRunner(AbstractSearchRunner):
         self._name = args.name
 
     def _run(self, datasetId):
-        iterator = self._client.search_biosamples(
+        iterator = self._client.search_individuals(
+            datasetId,
+            name=self._name)
+        self._output(iterator)
+
+    def run(self):
+        if self._datasetId is None:
+            for dataset in self.getAllDatasets():
+                self._run(dataset.id)
+        else:
+            self._run(self._datasetId)
+
+
+class SearchExperimentsRunner(AbstractSearchRunner):
+    """
+    Runner class for the experiments/search method.
+    """
+    def __init__(self, args):
+        super(SearchExperimentsRunner, self).__init__(args)
+        self._datasetId = args.datasetId
+        self._name = args.name
+
+    def _run(self, datasetId):
+        iterator = self._client.search_experiments(
+            datasetId,
+            name=self._name)
+        self._output(iterator)
+
+    def run(self):
+        if self._datasetId is None:
+            for dataset in self.getAllDatasets():
+                self._run(dataset.id)
+        else:
+            self._run(self._datasetId)
+
+
+class SearchAnalysesRunner(AbstractSearchRunner):
+    """
+    Runner class for the analyses/search method.
+    """
+    def __init__(self, args):
+        super(SearchAnalysesRunner, self).__init__(args)
+        self._datasetId = args.datasetId
+        self._name = args.name
+
+    def _run(self, datasetId):
+        iterator = self._client.search_analyses(
             datasetId,
             name=self._name)
         self._output(iterator)
@@ -989,6 +1035,24 @@ class GetIndividualRunner(AbstractGetRunner):
         self._method = self._client.get_individual
 
 
+class GetExperimentRunner(AbstractGetRunner):
+    """
+    Runner class for the references/{id} method
+    """
+    def __init__(self, args):
+        super(GetExperimentRunner, self).__init__(args)
+        self._method = self._client.get_experiment
+
+
+class GetAnalysisRunner(AbstractGetRunner):
+    """
+    Runner class for the references/{id} method
+    """
+    def __init__(self, args):
+        super(GetAnalysisRunner, self).__init__(args)
+        self._method = self._client.get_analysis
+
+
 class GetCallSetRunner(AbstractGetRunner):
     """
     Runner class for the callsets/{id} method
@@ -1491,8 +1555,22 @@ def addBiosamplesGetParser(subparsers):
 
 def addIndividualsGetParser(subparsers):
     parser = cli.addSubparser(
-        subparsers, "individuals-get", "Get a individual by ID")
+        subparsers, "individuals-get", "Get an individual by ID")
     parser.set_defaults(runner=GetIndividualRunner)
+    addGetArguments(parser)
+
+
+def addExperimentsGetParser(subparsers):
+    parser = cli.addSubparser(
+        subparsers, "experiments-get", "Get an experiment by ID")
+    parser.set_defaults(runner=GetIndividualRunner)
+    addGetArguments(parser)
+
+
+def addAnalysesGetParser(subparsers):
+    parser = cli.addSubparser(
+        subparsers, "analyses-get", "Get an analysis by ID")
+    parser.set_defaults(runner=GetAnalysisRunner)
     addGetArguments(parser)
 
 
@@ -1520,6 +1598,32 @@ def addIndividualsSearchParser(subparsers):
     addUrlArgument(parser)
     addOutputFormatArgument(parser)
     addDatasetIdArgument(parser)
+    addPageSizeArgument(parser)
+    addNameArgument(parser)
+    return parser
+
+
+def addExperimentsSearchParser(subparsers):
+    parser = subparsers.add_parser(
+        "experiments-search",
+        description="Search for expeirments",
+        help="Search for experiments.")
+    parser.set_defaults(runner=SearchExperimentsRunner)
+    addUrlArgument(parser)
+    addOutputFormatArgument(parser)
+    addPageSizeArgument(parser)
+    addNameArgument(parser)
+    return parser
+
+
+def addAnalysesSearchParser(subparsers):
+    parser = subparsers.add_parser(
+        "analyses-search",
+        description="Search for analyses",
+        help="Search for analyses.")
+    parser.set_defaults(runner=SearchAnalysesRunner)
+    addUrlArgument(parser)
+    addOutputFormatArgument(parser)
     addPageSizeArgument(parser)
     addNameArgument(parser)
     return parser
@@ -1854,6 +1958,10 @@ def getClientParser():
     addBiosamplesGetParser(subparsers)
     addIndividualsSearchParser(subparsers)
     addIndividualsGetParser(subparsers)
+    addExperimentsSearchParser(subparsers)
+    addExperimentsGetParser(subparsers)
+    addAnalysesSearchParser(subparsers)
+    addAnalysesGetParser(subparsers)
     addReferenceSetsSearchParser(subparsers)
     addReferencesSearchParser(subparsers)
     addReadGroupSetsSearchParser(subparsers)

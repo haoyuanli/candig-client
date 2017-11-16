@@ -1,5 +1,7 @@
 .. image:: http://genomicsandhealth.org/files/logo_ga.png
 
+|Build Status|
+
 ============
 GA4GH Client
 ============
@@ -53,3 +55,6 @@ REFERENCES
   `installation <http://ga4gh-server.readthedocs.org/en/stable/installation.html>`_ page.
 - If you would like to contribute to the project, please see the
   `development <http://ga4gh-server.readthedocs.org/en/stable/development.html>`_ page.
+
+.. |Build Status| image:: https://travis-ci.org/CanDIG/ga4gh-schemas.svg?branch=master
+			  :target: https://travis-ci.org/CanDIG/ga4gh-schemas
