@@ -1192,11 +1192,15 @@ class LocalClient(AbstractClient):
             response_json = self._backend.runAddAnnouncement(
                 protocol.toJson(protocol_request))
             return self._deserialize_response(
-                response_json, protocol_response_class)
+                response_json,
+                protocol_response_class,
+                self._serialization)
         elif path == "peers/list":
             response_json = self._backend.runListPeers(
                 protocol.toJson(protocol_request))
             return self._deserialize_response(
-                response_json, protocol_response_class)
+                response_json,
+                protocol_response_class,
+                self._serialization)
         else:
             raise NotImplemented()
