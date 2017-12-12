@@ -9,6 +9,8 @@ import requests
 import posixpath
 import logging
 
+from collections import defaultdict
+
 import ga4gh.client.exceptions as exceptions
 
 import ga4gh.schemas.pb as pb
@@ -1071,6 +1073,191 @@ class HttpClient(AbstractClient):
         return self._deserialize_response(
             response.text, protocol.ListReferenceBasesResponse,
             self._get_response_mimetype(response))
+
+
+class FederatedClient(HttpClient):
+    """
+    Initial attempt to query the peers in the federated manner
+    """
+    def __init__(self, peers):
+        self._peers = peers
+
+    # TODO: refactor for the general case
+    def search_individuals(self):
+        # TODO: for now, we want to query just profyle individuals
+        federated_individuals = defaultdict(list)
+        # TODO: should we ping peers first?
+        for peer in self._peers:
+            try:
+                # TODO: implement as async/multithread
+                super(FederatedClient, self).__init__(peer.getUrl())
+                for d in self.search_datasets():
+                    # TODO: hardcoded datasets names
+                    if d.name in ['PROFYLE']:
+                        dataset = d
+                        break
+                # TODO: uses the first dataset
+                iterator = HttpClient.search_individuals(
+                    self, dataset_id=dataset.id)
+                for individual in iterator:
+                    federated_individuals[peer.getUrl()].append(individual)
+            # TODO: just muting expeptions for now
+            except Exception as err:
+                print("Unexpected individuals error:", err)
+                # pass
+        return federated_individuals
+
+
+    def get_concordance(self, gene):
+
+        def Calc_Freq(Test):
+            tot = len(Test)
+            AutCalc = {}
+            Arr = []
+            for i in range(tot):
+                if AutCalc.has_key(Test[i]["allele"]) == False and (Test[i]['allele'] != "N"):
+                    AutCalc.setdefault(Test[i]["allele"], 1)
+                    Arr.append(Test[i]['allele'])
+                else:
+                    if Test[i]['allele'] == "N":
+                        tot -= 1
+                    else:
+                        AutCalc[Test[i]["allele"]] = float(AutCalc.get(Test[i]["allele"]) + 1)
+            Freq = {}
+            # print "\n{} Reads where used, to determine pile-up".format(tot)
+            tot = float(tot)
+            for i in Arr:
+                Freq.setdefault(i,float(AutCalc.get(i)/tot))
+            return Freq
+
+        def cigar_interpreter(sequence, observe, ReferBase):
+            Temp = 0
+            BaseCounter = 0
+            Variant = ""
+            AligSeq = sequence.aligned_sequence
+            InterpArr = list([])
+            Iter = 0
+            type(sequence)
+            for i in sequence.alignment.cigar:
+                Length = i.operation_length
+                if protocol.CigarUnit.Operation.Name(i.operation) == "ALIGNMENT_MATCH":
+                    InterpArr[len(InterpArr):len(InterpArr)+Length] = AligSeq[Temp:Temp+Length]
+                    Temp += Length
+                    BaseCounter += Length
+
+                elif protocol.CigarUnit.Operation.Name(i.operation) == "CLIP_SOFT":
+                    Temp += Length
+
+
+                elif protocol.CigarUnit.Operation.Name(i.operation) == "DELETE":
+                    int_iter = 0
+                    for i in range(Length):
+                        InterpArr[len(InterpArr) : len(InterpArr)+1] = "N"
+                        BaseCounter += 1
+                        int_iter += 1
+                        if BaseCounter == observe:
+                            Variant = ReferBase[BaseCounter:BaseCounter+int_iter]
+                            return Variant
+
+                elif protocol.CigarUnit.Operation.Name(i.operation) == "INSERT":
+                    for i in range(Length):
+                        InterpArr[len(InterpArr):len(InterpArr)+1] = AligSeq[Temp : Temp+1]
+                        Temp += 1
+                        if (Temp == observe) and (len(InterpArr) >= Temp+Length+1):
+                            Variant = "".join(InterpArr[Temp:Temp+Length+1])
+                            return Variant
+
+                Iter += 1
+            if (Temp >= observe) and (len(sequence.alignment.cigar) == Iter) :
+                    return InterpArr[observe]
+            else:
+                return "N"
+
+        def pileUp(contig, position, read_group):
+            alleles = []
+            for sequence in self.search_reads(read_group_ids=[read_group.id],start = position, end = position+1, reference_id=contig):
+                if sequence.alignment != None:
+                    start = sequence.alignment.position.position
+                    observe = position - sequence.alignment.position.position
+                    end = start+len(sequence.aligned_sequence)
+
+                    if observe > 100 or observe < 0:
+                        continue
+
+                    if len(sequence.alignment.cigar) > 1:
+                        allele = cigar_interpreter(sequence, observe, self.list_reference_bases(contig, start=start, end=end))
+                    else:
+                        allele = sequence.aligned_sequence[observe]
+
+                    alleles.append({"allele": str(allele), "readGroupId":i.id})
+            return Calc_Freq(alleles)
+
+        federated_concordance = defaultdict(list)
+        freq = defaultdict(list)
+        uniq = defaultdict(list)
+
+        for peer in self._peers:
+            # try:
+                super(FederatedClient, self).__init__(peer.getUrl())
+                for d in self.search_datasets():
+                    # TODO: hardcoded datasets names
+                    if d.name in ['concordance_Montreal', 'concordance_Toronto', 'concordance_Vancouver']:
+                        dataset = d
+                        break
+
+                # TODO: hardcoded reference
+                for r in self.search_reference_sets():
+                    if r.name == 'GRCh37-lite':
+                        reference_set = r
+                        break
+
+                references = [r for r in self.search_references(reference_set_id=reference_set.id)]
+
+                contig ={}
+                for i in references:
+                    contig[i.name] = str(i.id)
+
+                # TODO: hardcoded variants
+                for v in self.search_variant_sets(dataset_id=dataset.id):
+                    if v.name in ['mcgill', 'sickkids', 'GSC']:
+                        variant_set = v
+
+                # TODO: assumption that we know which one we want
+                for f in self.search_feature_sets(dataset_id=dataset.id):
+                    if f.name == 'gencode':
+                        feature_set = f
+                        break
+
+                # TODO: assumption that it is only one
+                read_group_set = self.search_read_group_sets(dataset_id=dataset.id).next()
+
+                for features in self.search_features(
+                feature_set_id=feature_set.id, gene_symbol=gene, feature_types=['gene']):
+                    # TODO: normalize the reference name
+                    reference_name = features.reference_name
+                    if reference_name.startswith('chr'):
+                        reference_name = features.reference_name.replace('chr', '')
+
+                    counter = 0
+                    for variant in self.search_variants(
+                    variant_set_id=variant_set.id, reference_name=reference_name, start=features.start, end=features.end):
+                        if counter > 10:
+                            break
+                        counter += 1
+                        if variant.end - variant.start == 1:
+                            freq[peer.getUrl() + str(variant.start)].append(pileUp(contig.get(variant.reference_name), variant.start, read_group_set.read_groups[0]))
+                        federated_concordance[peer.getUrl()].append(variant)
+
+            # TODO: just muting expeptions for now
+            # except Exception as err:
+                # print("Unexpected concordance error:", err)
+                # pass
+
+        for k, val in federated_concordance.iteritems():
+            for v in val:
+                uniq[v.start].append(v)
+
+        return federated_concordance, freq, uniq
 
 
 class LocalClient(AbstractClient):
