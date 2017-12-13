@@ -940,6 +940,40 @@ class AbstractClient(object):
             request, "expressionlevels",
             protocol.SearchExpressionLevelsResponse)
 
+    def get_association(self, individuals):
+        g2p = {}
+        associations = []
+        for peer, inds in individuals.items():
+            for ind in inds:
+                # TODO: need to speed up to go away from hardcode
+                # description = ncit.getTermName(ind.diagnosis.term_id)
+                description="Neuroblastoma"
+
+                # assuming only one dataset and association set
+                association_set = self.search_phenotype_association_sets(
+                    self.search_datasets().next().id)
+                association_set_id = False
+                for a_s in association_set:
+                    association_set_id = a_s.id
+                    break
+                if association_set_id:
+                    phenotypes = self.search_phenotype(
+                        phenotype_association_set_id=association_set_id,
+                        description=description  + " .*"
+                        )
+                    phenotypes = list(phenotypes)
+                    if phenotypes:
+                        g2p[description] = set([p.description for p in phenotypes])
+
+                        feature_phenotype_associations = self.search_genotype_phenotype(
+                                phenotype_association_set_id=association_set_id,
+                                phenotype_ids=[p.id for p in phenotypes])
+                        associations = feature_phenotype_associations
+            # TODO: returns one hardcoded value for now
+                        break
+            break
+        return g2p, associations
+
 
 class HttpClient(AbstractClient):
     """
