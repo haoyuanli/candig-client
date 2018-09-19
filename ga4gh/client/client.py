@@ -8,6 +8,10 @@ from __future__ import unicode_literals
 import requests
 import posixpath
 import logging
+import json
+
+from requests_oauthlib import OAuth2Session
+from oauthlib.oauth2 import LegacyApplicationClient
 
 import ga4gh.client.exceptions as exceptions
 
@@ -31,14 +35,32 @@ class AbstractClient(object):
         if serialization not in protocol.MIMETYPES:
             self._serialization = "application/protobuf"
 
+    def _defederate_response(self, response_text):
+        """
+        Pullout the results if this is a federated response
+
+        Note that federated responses have broken binary serialization,
+        as they are implemented outside of the schema, so we can assume text.
+        """
+        try:
+            response_body_json = json.loads(response_text)
+        except ValueError:
+            return response_text
+
+        if 'status' in response_body_json and 'results' in response_body_json:
+            return json.dumps(response_body_json['results'])
+        return response_text
+
     def _deserialize_response(
             self, response_string, protocol_response_class,
             content_type):
         self._protocol_bytes_received += len(response_string)
         self._logger.debug("response:{}".format(response_string))
-        if not response_string and content_type == "application/json":
+        defed_response_string = self._defederate_response(response_string)
+        self._logger.debug("defed_response:{}".format(defed_response_string))
+        if not defed_response_string and content_type == "application/json":
             raise exceptions.EmptyResponseException()
-        return protocol.deserialize(response_string,
+        return protocol.deserialize(defed_response_string,
                                     content_type,
                                     protocol_response_class)
 
@@ -977,9 +999,7 @@ class HttpClient(AbstractClient):
 
     def __init__(
             self, url_prefix, logLevel=logging.WARNING,
-            serialization="application/protobuf; q=1.0," +
-                          "application/x-protobuf; q=1.0," +
-                          "application/json; q=0.1",
+            serialization="application/json",
             authentication_key=None,
             id_token=None):
         super(HttpClient, self).__init__(logLevel, serialization)
@@ -1032,7 +1052,7 @@ class HttpClient(AbstractClient):
         """
         Returns the basic HTTP parameters we need all requests.
         """
-        return {'key': self._authentication_key}
+        return {}
 
     def _run_http_get_request(
             self, path, protocol_response_class):
@@ -1046,6 +1066,7 @@ class HttpClient(AbstractClient):
     def _run_http_post_request(
             self, protocol_request, path, protocol_response_class):
         url = posixpath.join(self._url_prefix, path)
+        self._logger.debug("url:{}".format(url))
         data = protocol.toJson(protocol_request)
         self._logger.debug("request:{}".format(data))
         response = self._session.post(
@@ -1058,10 +1079,12 @@ class HttpClient(AbstractClient):
     def _run_search_page_request(
             self, protocol_request, object_name, protocol_response_class):
         url = posixpath.join(self._url_prefix, object_name + '/search')
+        self._logger.debug("url:{}".format(url))
         data = protocol.toJson(protocol_request)
         self._logger.debug("request:{}".format(data))
         response = self._session.post(
             url, params=self._get_http_parameters(), data=data)
+        self._logger.debug("response:{}".format(response))
         self._check_response_status(response)
         return self._deserialize_response(
             response.text, protocol_response_class,
@@ -1087,6 +1110,42 @@ class HttpClient(AbstractClient):
         return self._deserialize_response(
             response.text, protocol.ListReferenceBasesResponse,
             self._get_response_mimetype(response))
+
+
+class OidcClient(HttpClient):
+    """
+    OIDC Client - Uses Resource Owner Password Credentials
+    Builds on HttpClient
+    """
+    def __init__(
+            self, url_prefix, logLevel=logging.WARNING,
+            serialization="application/json",
+            token_endpoint=None,
+            refresh_endpoint=None,
+            client_id=None, client_secret=None,
+            username=None, password=None):
+        super(OidcClient, self).__init__(url_prefix, logLevel, serialization)
+
+        self._extra = {
+            'client_id': client_id,
+            'client_secret': client_secret
+        }
+
+        lac_client = LegacyApplicationClient(client_id=client_id)
+        self._session = OAuth2Session(client=lac_client)
+        token = self._session.fetch_token(token_url=token_endpoint,
+                                          username=username, password=password,
+                                          client_id=client_id,
+                                          client_secret=client_secret)
+        self._token_saver(token)
+        self._session = OAuth2Session(client_id, token=self._token,
+                                      auto_refresh_url=refresh_endpoint,
+                                      auto_refresh_kwargs=self._extra,
+                                      token_updater=self._token_saver)
+
+    def _token_saver(self, token):
+        self._token = token
+        return token
 
 
 class LocalClient(AbstractClient):

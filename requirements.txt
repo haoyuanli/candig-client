@@ -6,4 +6,5 @@
 ga4gh-common==0.0.7
 ga4gh-schemas
 requests
+requests_oauthlib
 protobuf==3.3.0
