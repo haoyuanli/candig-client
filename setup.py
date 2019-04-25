@@ -20,7 +20,7 @@ with open("requirements.txt") as requirementsFile:
             continue
         if line[0] == '#':
             continue
-        pinnedVersion = line.split()[0]
+        # pinnedVersion = line.split()[0]
         install_requires.append(pinnedVersion)
 
 dependency_links = []
